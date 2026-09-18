@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -73,7 +74,12 @@ func albumsByArtist(name string) ([]Album, error) {
 	if err != nil {
 		return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(rows)
 	// Loop through rows, using Scan to assign column data to struct fields.
 	for rows.Next() {
 		var alb Album
@@ -95,7 +101,7 @@ func albumByID(id int64) (Album, error) {
 
 	row := db.QueryRow("SELECT * FROM album WHERE id = ?", id)
 	if err := row.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return alb, fmt.Errorf("albumsById %d: no such album", id)
 		}
 		return alb, fmt.Errorf("albumsById %d: %v", id, err)
